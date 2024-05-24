@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <ranges>
 #include <stack>
 #include <utility>
 #include <vector>
@@ -85,6 +87,17 @@ Print_Triangulation(const std::vector<std::vector<int>> &k_store, int i,
   return triangle;
 }
 
+double spanning_ratio() {
+  double span_ratio;
+  return span_ratio;
+}
+
+void addEdge(std::vector<std::vector<std::pair<int, double>>> &adj, int i,
+             int j, double weight) {
+  adj[i].push_back({j, weight});
+  adj[j].push_back({i, weight});
+}
+
 int main() {
   Point polygon[] = {{0, 0}, {1, 0}, {2, 1}, {1, 2}, {0, 2}};
   int n = sizeof(polygon) / sizeof(polygon[0]);
@@ -97,5 +110,27 @@ int main() {
     }
     std::cout << "\n";
   }
+
+  std::vector<std::vector<std::pair<int, double>>> adj[n];
+  for (int i = 0; i < n - 1; i++) {
+    addEdge(adj, i, i + 1, euclidean_distance(polygon[i], polygon[i + 1]));
+  }
+
+  for (auto &i : triangles) {
+    std::ranges::sort(i);
+    addEdge(adj, i[0], i[2], euclidean_distance(polygon[i[0]], polygon[i[2]]));
+  }
+  std::cout << "---------" << "\n";
+  for (int i = 0; i < n; i++) {
+    std::cout << "{ " << polygon[i].x << ", " << polygon[i].y << "} " << "\n";
+    for (const auto &j : adj[i]) {
+      for (auto [k, l] : j) {
+        std::cout << "\t" << "{ " << polygon[k].x << ", " << polygon[k].y
+                  << "} -----> " << l << "\n";
+      }
+    }
+  }
+
+  std::cout << spanning_ratio();
   return 0;
 }
