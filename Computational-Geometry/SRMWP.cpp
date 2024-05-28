@@ -1,10 +1,10 @@
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
-#include <ranges>
 #include <stack>
 #include <utility>
 #include <vector>
@@ -19,13 +19,14 @@ double euclidean_distance(Point u, Point v) {
   return std::sqrt(std::pow(u.x - v.x, 2) + std::pow(u.y - v.y, 2));
 }
 
-double perimeter(Point polygon[], int i, int j, int k) {
+double perimeter(std::vector<Point> polygon, int i, int j, int k) {
   Point u = polygon[i], v = polygon[j], w = polygon[k];
   return euclidean_distance(u, v) + euclidean_distance(v, w) +
          euclidean_distance(w, u);
 }
 
-std::vector<std::vector<int>> minimum_cost_polygon_dp(Point polygon[], int n) {
+std::vector<std::vector<int>>
+minimum_cost_polygon_dp(std::vector<Point> &polygon, int n) {
   if (n < 3) {
     return {{0}};
   }
@@ -49,28 +50,11 @@ std::vector<std::vector<int>> minimum_cost_polygon_dp(Point polygon[], int n) {
     }
   }
 
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) {
-      std::cout << " |" << memo_t[i][j] << "| ";
-    }
-    std::cout << "\n";
-  }
-
-  std::cout << "------------" << "\n";
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) {
-      std::cout << " |" << k_store[i][j] << "| ";
-    }
-    std::cout << "\n";
-  }
-
-  std::cout << memo_t[0][n - 1] << "\n";
   return k_store;
 }
 
 std::vector<std::vector<int>>
-Print_Triangulation(const std::vector<std::vector<int>> &k_store, int i,
-                    int j) {
+triangulation_pos(const std::vector<std::vector<int>> &k_store, int i, int j) {
   std::vector<std::vector<int>> triangle;
   std::stack<std::pair<int, int>> s;
   s.push({i, j});
@@ -86,51 +70,72 @@ Print_Triangulation(const std::vector<std::vector<int>> &k_store, int i,
   }
   return triangle;
 }
-
-double spanning_ratio() {
-  double span_ratio;
-  return span_ratio;
-}
-
 void addEdge(std::vector<std::vector<std::pair<int, double>>> &adj, int i,
              int j, double weight) {
   adj[i].push_back({j, weight});
   adj[j].push_back({i, weight});
 }
 
-int main() {
-  Point polygon[] = {{0, 0}, {1, 0}, {2, 1}, {1, 2}, {0, 2}};
-  int n = sizeof(polygon) / sizeof(polygon[0]);
-  auto triangulation = minimum_cost_polygon_dp(polygon, n);
-  auto triangles = Print_Triangulation(triangulation, 0, n - 1);
-  for (const auto &i : triangles) {
-    std::cout << "Triangles: ";
-    for (int j : i) {
-      std::cout << j << " ";
-    }
-    std::cout << "\n";
-  }
-
-  std::vector<std::vector<std::pair<int, double>>> adj[n];
+void create_graph(std::vector<Point> &polygon,
+                  std::vector<std::vector<std::pair<int, double>>> &adj, int n,
+                  std::vector<std::vector<int>> triangles) {
   for (int i = 0; i < n - 1; i++) {
     addEdge(adj, i, i + 1, euclidean_distance(polygon[i], polygon[i + 1]));
   }
-
   for (auto &i : triangles) {
-    std::ranges::sort(i);
+    std::sort(i.begin(), i.end());
     addEdge(adj, i[0], i[2], euclidean_distance(polygon[i[0]], polygon[i[2]]));
   }
-  std::cout << "---------" << "\n";
+}
+
+double spanning_ratio(std::vector<Point> polygon,
+                      std::vector<std::vector<std::pair<int, double>>> &adj,
+                      int n) {
+  double span_ratio = 0;
+  std::vector<std::vector<double>> shortestDistance(
+      n, std::vector<double>(n, std::numeric_limits<double>::max()));
   for (int i = 0; i < n; i++) {
-    std::cout << "{ " << polygon[i].x << ", " << polygon[i].y << "} " << "\n";
     for (const auto &j : adj[i]) {
-      for (auto [k, l] : j) {
-        std::cout << "\t" << "{ " << polygon[k].x << ", " << polygon[k].y
-                  << "} -----> " << l << "\n";
+      shortestDistance[i][j.first] = j.second;
+    }
+  }
+
+  for (int i = 0; i < n; i++) {
+    shortestDistance[i][i] = 0;
+  }
+
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      for (int k = 0; k < n; k++) {
+        shortestDistance[j][k] =
+            std::min(shortestDistance[j][k],
+                     shortestDistance[j][i] + shortestDistance[i][k]);
       }
     }
   }
 
-  std::cout << spanning_ratio();
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      if (i != j) {
+        span_ratio = std::max(span_ratio,
+                              shortestDistance[i][j] /
+                                  euclidean_distance(polygon[i], polygon[j]));
+      }
+    }
+  }
+
+  return span_ratio;
+}
+
+int main() {
+  std::vector<Point> polygon = {{0, 0}, {1, 0}, {2, 1}, {1, 2}, {0, 2}};
+  int n = polygon.size();
+  auto triangulation = minimum_cost_polygon_dp(polygon, n);
+  std::vector<std::vector<int>> triangles =
+      triangulation_pos(triangulation, 0, n - 1);
+  std::vector<std::vector<std::pair<int, double>>> adj(n);
+  create_graph(polygon, adj, n, triangles);
+  std::cout << "Spanning Ratio of the Graph is "
+            << spanning_ratio(polygon, adj, n) << "\n";
   return 0;
 }
